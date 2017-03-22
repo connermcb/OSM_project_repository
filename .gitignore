@@ -1,0 +1,6 @@
+$ git status
+
+# Untracked files:
+
+.ipynb_checkpoints/
+austin_texas.osm/
