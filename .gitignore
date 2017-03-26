@@ -1,7 +1,8 @@
 $ git status
 
 # Untracked files:
+*
 
-.ipynb_checkpoints/
-austin_texas.osm/
-map.osm
+# Except:
+!OSM_Project
+
