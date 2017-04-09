@@ -17,6 +17,8 @@ class Popul(object):
         self.file_name = file_name
         self.osm_file = open(file_name, 'r', encoding="utf8")
         self.pop_est = {}
+        self.node_data = []
+        self.tag_data = []
 
     def initialize_csvs(self):
         # Initialize csv files for later writing and export into SQL
@@ -110,20 +112,20 @@ class Popul(object):
         for row in reader:
             self.pop_est[row[1]] = [row[2], row[4]] 
             
-
+        
                 
-    def shape_data(self, data):
+    def shape_data(self):
         # Update population figures to most recent gov estimates
         # Update OSM settlement type based on revised population figures
         # Input: list of len = 7, 
         #        [OSM node id, city name, OSM settlement type, T/F for settlement type change,
         #         OSM population, revised population (init None), OSM pop source]
-        # Output: Updated list with same parameters
-        osm_pop = int(data[3])
-        name = data[0]
+        # Output: None
+        osm_pop = int(self.tag_data[3])
+        name = self.tag_data[0]
         pop_2016 = int(self.pop_est[name][1])
         if pop_2016 != osm_pop:
-            data[4] = int(pop_2016)
+            self.tag_data[4] = int(pop_2016)
             place = None
             if pop_2016 < 100:
                 place = 'hamlet'
@@ -134,12 +136,12 @@ class Popul(object):
             else:
                 place = 'city'
                 
-            if place != data[1]:
-                data[1] = place
-                data[2] = True
+            if place != self.tag_data[1]:
+                self.tag_data[1] = place
+                self.tag_data[2] = True
         else:
-            data[4] = osm_pop
-        return data
+            self.tag_data[4] = osm_pop
+
 
         
     def process_data(self):
@@ -148,6 +150,7 @@ class Popul(object):
         count = 0
         time_start = time.time()
         print("Processing OSM file...")
+        # Reset data files to avoid data duplication
         self.reset_data_files()
         settlements = set([])
         for element in self.get_element():
@@ -156,7 +159,7 @@ class Popul(object):
             time_stamp_year = element.get('timestamp')[:4]
             user = element.get('user')
             user_id = element.get('uid')
-            node_data = [elem_id, user, user_id, time_stamp_year]
+            self.node_data = [elem_id, user, user_id, time_stamp_year]
             # Define and reset tag variables
             name = None
             place = None
@@ -176,11 +179,11 @@ class Popul(object):
             if (name in self.pop_est and name not in settlements and popul):
                 settlements.add(name)
                 count += 1
-                tag_data = [name, place, False, popul, None, source] 
-                tag_data = [elem_id] + self.shape_data(tag_data)
-                self.write_node_data(node_data)
-                self.write_place_data(tag_data[:4])
-                self.write_popul_data([name] + tag_data[4:])
+                self.tag_data = [name, place, False, popul, None, source] 
+                self.tag_data = [elem_id] + self.shape_data()
+                self.write_node_data(self.node_data)
+                self.write_place_data(self.tag_data[:4])
+                self.write_popul_data([name] + self.tag_data[4:])
         time_end = time.time()
         total_time = round(time_end - time_start, 4)
         print("Data processed in {} secs. \n{} population tags found and cleaned.\n\n".format(total_time, count))
