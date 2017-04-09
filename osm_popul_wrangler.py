@@ -110,9 +110,15 @@ class Popul(object):
         # Read csv file of Texas gov population estimates into city keyed dict
         reader = csv.reader(open(f))
         for row in reader:
+            #row[2] = 2010 US Census figure, row[4] = Texas estimate for 1-1-2016
             self.pop_est[row[1]] = [row[2], row[4]] 
             
-        
+    def shape_source_helper(self):
+        if self.node_data[5] == 'US Census' and self.node_data[4] == self.pop_est[1]:
+            self.node_data[5] == 'US Census 2010'
+        if self.node_data[5] == None and self.node_data[4] == self.pop_est[1]:
+            self.node_data[5] = 'US Census 2010'
+            
                 
     def shape_data(self):
         # Update population figures to most recent gov estimates
@@ -141,7 +147,7 @@ class Popul(object):
                 self.tag_data[2] = True
         else:
             self.tag_data[4] = osm_pop
-
+        self.shape_source_helper
 
         
     def process_data(self):
@@ -255,8 +261,8 @@ class Popul(object):
         curs.execute("SELECT source, COUNT(*) AS Count FROM settlement_popul GROUP BY source ORDER BY Count DESC;")
         source_count = curs.fetchall()
         print(source_count)
-#        source_df = pd.DataFrame(source_count, columns=('Data Source', 'Count'))
-#        print(source_df)
+        source_df = pd.DataFrame(source_count, columns=('Data Source', 'Count'))
+        print(source_df)
         print()
 
     def get_timestamp(self):
