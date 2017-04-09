@@ -3,17 +3,17 @@
 Class for auditing and cleaning population data for settlements in OSM files
 within Texas, USA.
 """
+
 import csv
 import os
 import pandas as pd
 import sqlite3
 import time
-import urllib.request
 import xml.etree.cElementTree as ET
 
 class Popul(object):
     
-    def __init__(self, file_name):
+    def __init__(self, file_name=None, url=None):
         self.file_name = file_name
         self.osm_file = open(file_name, 'r', encoding="utf8")
         self.pop_est = {}
@@ -149,6 +149,7 @@ class Popul(object):
         time_start = time.time()
         print("Processing OSM file...")
         self.reset_data_files()
+        settlements = set([])
         for element in self.get_element():
             # Gather element data for later OSM correction
             elem_id = element.get('id')
@@ -172,7 +173,8 @@ class Popul(object):
                 if tag.attrib['k'].startswith('source:population'):
                     source = tag.get('v')
             # Write element and tag data to respective csv files
-            if (name in self.pop_est and popul):
+            if (name in self.pop_est and name not in settlements and popul):
+                settlements.add(name)
                 count += 1
                 tag_data = [name, place, False, popul, None, source] 
                 tag_data = [elem_id] + self.shape_data(tag_data)
@@ -198,13 +200,17 @@ class Popul(object):
         popul_df.to_sql('settlement_popul', connect)
         connect.commit()
 
-    def get_data_stats(self):
+    def get_pop_edits(self):
         p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
         curs = p3_db.cursor()
         curs.execute("SELECT COUNT(name) FROM settlement_places;")
         n = curs.fetchone()[0]
         print("Number of revised populations = {}".format(n))
         print()
+    
+    def get_pop_change_list(self):
+        p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
+        curs = p3_db.cursor()
         curs.execute("SELECT name, pop_2016 - osm_population,\
                              round(((pop_2016 - osm_population)/(osm_population*1.0)), 3) AS proportion\
                              FROM settlement_popul \
@@ -214,12 +220,20 @@ class Popul(object):
         settlements_df = pd.DataFrame(settlements, columns=('Settlement', 'Increase', 'Proportion'))
         print(settlements_df)
         print()
+        
+    def get_averages(self):
+        p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
+        curs = p3_db.cursor()
         curs.execute("SELECT round(avg(pop_2016 - osm_population), 2) AS average_increase,\
                              avg(1.0 * round(((pop_2016 - osm_population)/(1.0 * osm_population)), 4)) AS proportion\
                              FROM settlement_popul;")
         incr_avg, prop_avg = curs.fetchone()
         print("Mean population increase = {}  \nMean proportional increase = {}".format(incr_avg, prop_avg))
         print()
+        
+    def get_designation_changes(self):
+        p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
+        curs = p3_db.cursor()
         curs.execute("SELECT sum(place_change) AS Place_Changes FROM settlement_places;")
         n_place_change = curs.fetchone()[0]
         
@@ -232,10 +246,39 @@ class Popul(object):
         print(place_change_df)
         print()
         
-aust = Popul(r'C:\users\user\OSM_Project_Repository\austin_texas.osm')
-#aust.get_file_size()
-#aust.get_osm_stats()
-aust.get_popul_est()
-aust.process_data()
-aust.write_sql()
-aust.get_data_stats()
+    def get_sources(self):
+        p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
+        curs = p3_db.cursor()
+        curs.execute("SELECT source, COUNT(*) AS Count FROM settlement_popul GROUP BY source ORDER BY Count DESC;")
+        source_count = curs.fetchall()
+        print(source_count)
+#        source_df = pd.DataFrame(source_count, columns=('Data Source', 'Count'))
+#        print(source_df)
+        print()
+
+    def get_timestamp(self):
+        p3_db = sqlite3.connect(r'C:\Users\User\sqlite_windows\p3_osm2')
+        curs = p3_db.cursor()
+        curs.execute("SELECT timestamp, COUNT(timestamp) FROM settlement_nodes ORDER BY Count DESC;")
+        timestamp = curs.fetchall()
+        timestamp_df = pd.DataFrame([timestamp], columns=('Year of Data', 'Count'))
+        print(timestamp_df)
+        print()
+
+
+houston = Popul(file_name=r'C:\users\user\OSM_Project_Repository\dallas_texas.osm')
+#houston.get_file_size()
+#houston.get_osm_stats()
+houston.get_popul_est()
+houston.process_data()
+houston.write_sql()
+houston.get_designation_changes()
+houston.get_sources()
+#houston.get_timestamp()
+#aust = Popul(r'C:\users\user\OSM_Project_Repository\austin_texas.osm')
+##aust.get_file_size()
+##aust.get_osm_stats()
+#aust.get_popul_est()
+#aust.process_data()
+#aust.write_sql()
+#aust.get_data_stats()
