@@ -5,5 +5,5 @@ $ git status
 
 # Except:
 !OSM_Project
-!osm_popul_wrangler.py
+!osm_popul_wrangle.py
 
